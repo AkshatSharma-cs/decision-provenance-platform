@@ -1,0 +1,19 @@
+{
+  "_contract": "audit_event",
+  "_producer": "Person 4 (audit_service.py — inserted in the same DB transaction as the state change it records)",
+  "_consumer": "Everyone (Person 3 renders the replay timeline, Person 1 calls the insert function from every service, anyone can call /api/audit/verify)",
+  "_description": "One row in the tamper-evident hash chain. entry_hash = SHA256(previous_entry_hash + canonical_payload + actor_id + action_type + occurred_at). entry_hmac = HMAC_SHA256(server_secret, entry_hash).",
+
+  "action_type": "FIELD_OVERRIDDEN",
+  "payload": {
+    "field": "family_income",
+    "old_value": 480000,
+    "new_value": 408000,
+    "reason": "Clearer original certificate confirms value"
+  },
+  "actor_id": "reviewer-004",
+  "occurred_at": "2026-08-18T10:42:08Z",
+  "previous_entry_hash": "abc123def456...",
+  "entry_hash": "def456789abc...",
+  "entry_hmac": "789abc123def..."
+}

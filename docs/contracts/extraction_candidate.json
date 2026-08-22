@@ -1,0 +1,13 @@
+{
+  "_contract": "extraction_candidate",
+  "_producer": "Person 2 (extraction_service.py, Gemini Flash structured JSON output)",
+  "_consumer": "Person 1 (passes to evidence_service.py for matching against OCR text)",
+  "_description": "Raw candidate field value returned by Gemini before evidence matching. Never trusted on its own — must always include evidence_quote or it is rejected.",
+
+  "field_name": "family_income",
+  "value": 420000,
+  "value_text": "₹4,20,000 per annum",
+  "evidence_quote": "Gross parental/family income: ₹4,20,000 per annum",
+  "page_number": 2,
+  "uncertainty_reason": null
+}

@@ -1,0 +1,15 @@
+{
+  "_contract": "decision",
+  "_producer": "Person 1 (initial AUTOMATED decision) / Person 4 (new version on human override)",
+  "_consumer": "Person 3 (renders the decision banner + replay timeline)",
+  "_description": "The outcome for one application at one decision_version. A FINALIZED decision is never edited in place — a correction always creates a new decision object with an incremented decision_version and supersedes_decision_id pointing at the previous one.",
+
+  "decision_version": 2,
+  "outcome": "ELIGIBLE",
+  "decision_mode": "HUMAN_CONFIRMED",
+  "policy_version": "CSSS-Demo-v1.0",
+  "confidence_summary": {
+    "evidence_quality": "HIGH"
+  },
+  "supersedes_decision_id": "3f1b2c4a-9e21-4a55-8b7a-1a2b3c4d5e6f"
+}

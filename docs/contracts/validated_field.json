@@ -1,0 +1,23 @@
+{
+  "_contract": "validated_field",
+  "_producer": "Person 1 / Person 2 (evidence_service.py after fuzzy matching + validation)",
+  "_consumer": "Person 3 (renders field cards + evidence highlight), Person 4 (links into rule inputs and audit payloads)",
+  "_description": "An extraction_candidate that has been matched back to real OCR text (exact match, or RapidFuzz score >= 0.90) and passed deterministic validation. If it cannot be matched, status is UNTRUSTED and it must never reach the rules engine.",
+
+  "field_name": "family_income",
+  "normalized_value": 420000,
+  "status": "VALIDATED",
+  "validation_status": "VALID",
+  "ocr_confidence": 0.96,
+  "evidence_match_score": 1.0,
+  "model_confidence": 0.94,
+  "final_confidence": 0.976,
+  "evidence_quote": "Gross parental/family income: ₹4,20,000 per annum",
+  "source_page": 2,
+  "bounding_box": {
+    "x": 120,
+    "y": 300,
+    "width": 340,
+    "height": 34
+  }
+}

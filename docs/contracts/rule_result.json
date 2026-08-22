@@ -1,0 +1,14 @@
+{
+  "_contract": "rule_result",
+  "_producer": "Person 1 (rules_service.py — pure Python evaluator, never Gemini)",
+  "_consumer": "Person 3 (renders the rules table), Person 4 (stores in decision_rule_results, includes in audit payload)",
+  "_description": "The outcome of evaluating one policy rule against a set of validated_field objects. Only VALIDATED fields are ever passed in as input_snapshot.",
+
+  "rule_code": "CSSS_INCOME_LIMIT",
+  "result": "PASS",
+  "input_snapshot": {
+    "family_income": 420000
+  },
+  "explanation": "₹4,20,000 is within the ₹4,50,000 limit.",
+  "policy_version": "CSSS-Demo-v1.0"
+}

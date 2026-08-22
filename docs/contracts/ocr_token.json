@@ -1,0 +1,16 @@
+{
+  "_contract": "ocr_token",
+  "_producer": "Person 2 (ocr_service.py)",
+  "_consumer": "Person 1 (persists to ocr_tokens table)",
+  "_description": "One row per OCR token, produced by pytesseract.image_to_data() TSV output for a single page image.",
+
+  "page_number": 2,
+  "token": "₹4,20,000",
+  "left": 310,
+  "top": 300,
+  "width": 150,
+  "height": 24,
+  "confidence": 0.96,
+  "line_no": 4,
+  "block_no": 2
+}
