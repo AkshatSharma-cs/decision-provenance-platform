@@ -14,10 +14,14 @@ test suite for malformed/blank/rotated inputs).
 
 import sys
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Allow running this script directly (`python scripts/test_ocr_service.py`)
 # without installing the package.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# Load the repository-level .env before importing application services.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(REPO_ROOT / ".env")
 
 import fitz  # PyMuPDF, only used here to synthesize a sample PDF
 
