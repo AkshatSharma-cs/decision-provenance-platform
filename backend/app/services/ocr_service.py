@@ -41,6 +41,7 @@ from PIL import Image, UnidentifiedImageError
 from pytesseract import Output
 
 # On Windows (and any machine where the tesseract binary isn't on PATH),
+<<<<<<< HEAD
 # pytesseract has no way to find it unless told explicitly. We read an
 # optional TESSERACT_CMD env var (see .env.example) and point pytesseract at
 # it. This is done LAZILY inside _ensure_tesseract_configured() rather than
@@ -56,6 +57,17 @@ def _ensure_tesseract_configured() -> None:
     tesseract_cmd = os.environ.get("TESSERACT_CMD")
     if tesseract_cmd:
         pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+=======
+# pytesseract has no way to find it unless told explicitly. Rather than
+# requiring every developer to edit code, we read an optional TESSERACT_CMD
+# env var (see .env.example) and point pytesseract at it. If unset, we fall
+# back to pytesseract's default behavior (look up "tesseract" on PATH),
+# which is what already works on Linux/macOS with a normal package-manager
+# install.
+_TESSERACT_CMD = os.environ.get("TESSERACT_CMD")
+if _TESSERACT_CMD:
+    pytesseract.pytesseract.tesseract_cmd = _TESSERACT_CMD
+>>>>>>> origin/feature/backend
 
 from app.schemas.ocr import (
     OCRDocumentResult,
@@ -139,7 +151,10 @@ def process_document(file_path: str) -> OCRDocumentResult:
     Never raises for a single bad page in an otherwise-good multi-page
     document — that page is included in the result with warnings instead.
     """
+<<<<<<< HEAD
     _ensure_tesseract_configured()
+=======
+>>>>>>> origin/feature/backend
     path = Path(file_path)
     _validate_file_exists(path)
 
@@ -175,6 +190,10 @@ def process_document(file_path: str) -> OCRDocumentResult:
 
     confidences = [p.mean_confidence for p in page_results if p.token_count > 0]
     overall_mean_confidence = sum(confidences) / len(confidences) if confidences else 0.0
+<<<<<<< HEAD
+=======
+    overall_mean_confidence = max(0.0, min(1.0, round(overall_mean_confidence, 4)))
+>>>>>>> origin/feature/backend
 
     if low_conf_pages:
         document_warnings.append(
@@ -189,7 +208,11 @@ def process_document(file_path: str) -> OCRDocumentResult:
         pages=page_results,
         low_confidence_page_numbers=low_conf_pages,
         empty_page_numbers=empty_pages,
+<<<<<<< HEAD
         overall_mean_confidence=round(overall_mean_confidence, 4),
+=======
+        overall_mean_confidence=overall_mean_confidence,
+>>>>>>> origin/feature/backend
         warnings=document_warnings,
     )
 
@@ -370,7 +393,11 @@ def _ocr_single_page(
         warnings.append(OCRPageWarning.EMPTY_PAGE)
         mean_confidence = 0.0
     else:
+<<<<<<< HEAD
         mean_confidence = round(sum(t.confidence for t in tokens) / len(tokens), 4)
+=======
+        mean_confidence = max(0.0, min(1.0, round(sum(t.confidence for t in tokens) / len(tokens), 4)))
+>>>>>>> origin/feature/backend
         if mean_confidence < LOW_CONFIDENCE_PAGE_THRESHOLD:
             warnings.append(OCRPageWarning.LOW_CONFIDENCE)
 
@@ -391,7 +418,11 @@ def _tsv_to_tokens(tsv_data: dict, page_number: int) -> List[OCRToken]:
     tokens: List[OCRToken] = []
     n = len(tsv_data.get("text", []))
     for i in range(n):
+<<<<<<< HEAD
         text = tsv_data["text"][i].strip()
+=======
+        text = str(tsv_data["text"][i] if tsv_data["text"][i] is not None else "").strip()
+>>>>>>> origin/feature/backend
         if not text:
             continue  # block/paragraph/line boundary rows carry no word text
 
@@ -401,6 +432,10 @@ def _tsv_to_tokens(tsv_data: dict, page_number: int) -> List[OCRToken]:
         if conf_raw < MIN_WORD_CONFIDENCE_PCT:
             continue
 
+<<<<<<< HEAD
+=======
+        confidence = max(0.0, min(1.0, round(conf_raw / 100.0, 4)))
+>>>>>>> origin/feature/backend
         tokens.append(
             OCRToken(
                 page_number=page_number,
@@ -409,7 +444,11 @@ def _tsv_to_tokens(tsv_data: dict, page_number: int) -> List[OCRToken]:
                 top=int(tsv_data["top"][i]),
                 width=int(tsv_data["width"][i]),
                 height=int(tsv_data["height"][i]),
+<<<<<<< HEAD
                 confidence=round(conf_raw / 100.0, 4),
+=======
+                confidence=confidence,
+>>>>>>> origin/feature/backend
                 line_no=int(tsv_data["line_num"][i]),
                 block_no=int(tsv_data["block_num"][i]),
             )
