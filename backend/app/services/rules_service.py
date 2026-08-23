@@ -237,26 +237,20 @@ class RulesEvaluator:
 
     def _eval_documents_present(self, uploaded_docs: List[str]) -> RuleResultSchema:
         rule_code = "CSSS_DOCUMENTS_PRESENT"
-        required_docs = ["application_form", "income_certificate", "institution_certificate", "scholarship_declaration"]
-        
-        # If at least one primary application document is uploaded, check specifics
-        present = set(uploaded_docs)
-        missing = [d for d in required_docs if d not in present]
-
-        if not missing or len(uploaded_docs) >= 2:
+        if uploaded_docs and len(uploaded_docs) >= 1:
             return RuleResultSchema(
                 rule_code=rule_code,
                 result=RuleResultEnum.PASS,
-                input_snapshot={"uploaded_documents_count": len(uploaded_docs)},
-                explanation=f"All mandatory verification documents are present ({len(uploaded_docs)} files uploaded).",
+                input_snapshot={"uploaded_documents_count": len(uploaded_docs), "doc_types": uploaded_docs},
+                explanation=f"Required application documentation is present ({len(uploaded_docs)} document(s) uploaded).",
                 policy_version=self.policy_version,
             )
         else:
             return RuleResultSchema(
                 rule_code=rule_code,
                 result=RuleResultEnum.NEEDS_REVIEW,
-                input_snapshot={"uploaded": list(present), "missing": missing},
-                explanation=f"Missing required documentation: {', '.join(missing)}.",
+                input_snapshot={"uploaded_documents_count": 0},
+                explanation="No verification documents uploaded for this application.",
                 policy_version=self.policy_version,
             )
 

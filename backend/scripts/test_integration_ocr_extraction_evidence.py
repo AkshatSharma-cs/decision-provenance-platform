@@ -14,19 +14,15 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+REPO_ROOT = BACKEND_DIR.parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
 
-# Load repo-root .env into the actual process environment, since nothing else
-# in this prototype (no FastAPI app entrypoint yet) does that for us. This is
-# only done in test scripts, never inside the service files themselves —
-# service code should stay a pure function of os.environ, not have import-
-# time side effects. Silently continues if python-dotenv isn't installed or
-# no .env file exists; GEMINI_API_KEY then just needs to be set some other way.
 try:
     from dotenv import load_dotenv
-
-    _REPO_ROOT_ENV = Path(__file__).resolve().parent.parent.parent / ".env"
-    load_dotenv(_REPO_ROOT_ENV)
+    load_dotenv(BACKEND_DIR / ".env")
+    load_dotenv(REPO_ROOT / ".env")
 except ImportError:
     pass
 

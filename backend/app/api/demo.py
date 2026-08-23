@@ -29,6 +29,9 @@ from app.services.seed_service import SeedService
 router = APIRouter(prefix="/demo", tags=["Demo & Adversarial Testing"])
 
 
+from typing import Any, Dict, Optional
+from app.schemas.application import ApplicationResponse
+
 @router.post("/seed")
 def seed_demo_applications(
     db: Session = Depends(get_db),
@@ -37,6 +40,31 @@ def seed_demo_applications(
     """Preloads Demo Cases A (APP-00016), B (APP-00017), and C (APP-00018)."""
     SeedService.seed_all_demo_data(db)
     return {"message": "Demo data successfully seeded for APP-00016, APP-00017, and APP-00018."}
+
+
+@router.post("/seed-case", response_model=ApplicationResponse)
+def seed_single_demo_case(
+    payload: Optional[Dict[str, Any]] = None,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(require_permission("upload")),
+):
+    """Seeds a single demo case: CASE_A, CASE_B, or CASE_C."""
+    case_type = (payload or {}).get("case_type", "CASE_A")
+    SeedService.seed_policies(db)
+    ref = "APP-00016"
+    if case_type == "CASE_B":
+        ref = "APP-00017"
+        SeedService.seed_case_b(db)
+    elif case_type == "CASE_C":
+        ref = "APP-00018"
+        SeedService.seed_case_c(db)
+    else:
+        SeedService.seed_case_a(db)
+    
+    app = db.query(Application).filter(Application.public_reference == ref).first()
+    if not app:
+        raise HTTPException(status_code=500, detail="Failed to retrieve demo application.")
+    return app
 
 
 @router.post("/reset")

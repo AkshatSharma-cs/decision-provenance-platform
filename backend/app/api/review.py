@@ -25,6 +25,22 @@ from app.services.rules_service import RulesEvaluator
 router = APIRouter(prefix="/applications", tags=["Review & Overrides"])
 
 
+@router.get("/{id}/review-actions", response_model=List[ReviewActionResponse])
+def get_review_actions(
+    id: str,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(require_permission("view")),
+):
+    """Lists all historical review and override actions performed on an application."""
+    app = db.query(Application).filter(
+        (Application.id == id) | (Application.public_reference == id)
+    ).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found.")
+
+    return db.query(ReviewAction).filter(ReviewAction.application_id == app.id).order_by(ReviewAction.created_at.asc()).all()
+
+
 @router.post("/{id}/review-actions", response_model=DecisionDetailResponse)
 def submit_review_action(
     id: str,

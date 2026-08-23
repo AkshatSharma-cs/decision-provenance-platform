@@ -25,6 +25,36 @@ def get_current_iso_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _order_chain_entries(entries: List[AuditLogEntry]) -> List[AuditLogEntry]:
+    """Orders entries by following hash-chain links starting from ZERO_HASH."""
+    if not entries:
+        return []
+    by_prev_hash: Dict[str, AuditLogEntry] = {}
+    for e in entries:
+        by_prev_hash[e.previous_entry_hash] = e
+
+    ordered: List[AuditLogEntry] = []
+    visited_ids = set()
+    curr_prev = ZERO_HASH
+    while curr_prev in by_prev_hash:
+        entry = by_prev_hash[curr_prev]
+        if entry.id in visited_ids:
+            break
+        visited_ids.add(entry.id)
+        ordered.append(entry)
+        curr_prev = entry.entry_hash
+        if len(ordered) == len(entries):
+            break
+
+    # If any disconnected/tampered entries remain, append them to verify failure
+    if len(ordered) < len(entries):
+        for e in entries:
+            if e.id not in visited_ids:
+                ordered.append(e)
+
+    return ordered
+
+
 class AuditService:
     """
     Manages appending audit events to the tamper-evident hash chain
@@ -52,8 +82,12 @@ class AuditService:
         if application_id:
             query = query.filter(AuditLogEntry.application_id == application_id)
         
-        last_entry = query.order_by(AuditLogEntry.occurred_at.desc(), AuditLogEntry.id.desc()).first()
-        previous_hash = last_entry.entry_hash if last_entry else ZERO_HASH
+        all_entries = query.all()
+        if not all_entries:
+            previous_hash = ZERO_HASH
+        else:
+            ordered = _order_chain_entries(all_entries)
+            previous_hash = ordered[-1].entry_hash
 
         # Compute hash and HMAC
         entry_hash = compute_entry_hash(
@@ -99,12 +133,13 @@ class AuditService:
         query = db.query(AuditLogEntry)
         if application_id:
             query = query.filter(AuditLogEntry.application_id == application_id)
-            chains = {application_id: query.order_by(AuditLogEntry.occurred_at.asc(), AuditLogEntry.id.asc()).all()}
+            chains = {application_id: _order_chain_entries(query.all())}
         else:
-            all_entries = query.order_by(AuditLogEntry.occurred_at.asc(), AuditLogEntry.id.asc()).all()
+            all_entries = query.all()
             chains: Dict[Optional[str], List[AuditLogEntry]] = {}
             for entry in all_entries:
                 chains.setdefault(entry.application_id, []).append(entry)
+            chains = {app_k: _order_chain_entries(entries_list) for app_k, entries_list in chains.items()}
 
         total_entries = sum(len(entries) for entries in chains.values())
         if total_entries == 0:

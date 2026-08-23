@@ -54,8 +54,10 @@ import re
 from datetime import datetime
 from typing import Callable, Optional, Tuple
 
+from click import prompt
 from pydantic import ValidationError
 
+from app.core.config import settings
 from app.schemas.extraction import (
     ExtractionCandidate,
     FieldName,
@@ -66,12 +68,21 @@ from app.schemas.ocr import OCRDocumentResult
 
 logger = logging.getLogger(__name__)
 
-# --- Config ------------------------------------------------------------
-# Gemini credentials come from the environment ONLY (see .env.example:
-# GEMINI_API_KEY). Never hardcode a key here.
+# --- Config Helpers ---------------------------------------------------
+def _get_gemini_model_name() -> str:
+    return os.environ.get("GEMINI_MODEL") or getattr(settings, "GEMINI_MODEL", "gemini-3.6-flash")
 
-GEMINI_MODEL_NAME = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
-GEMINI_REQUEST_TIMEOUT_MS = int(os.environ.get("GEMINI_TIMEOUT_MS", "30000"))
+def _get_gemini_timeout_ms() -> int:
+    raw = os.environ.get("GEMINI_TIMEOUT_MS")
+    return int(raw) if raw else getattr(settings, "GEMINI_TIMEOUT_MS", 30000)
+
+def _get_groq_model_name() -> str:
+    return os.environ.get("GROQ_MODEL") or getattr(settings, "GROQ_MODEL", "qwen/qwen3.6-27b")
+
+def _get_groq_timeout_s() -> float:
+    raw = os.environ.get("GROQ_TIMEOUT_MS")
+    ms = int(raw) if raw else getattr(settings, "GROQ_TIMEOUT_MS", 30000)
+    return ms / 1000
 
 # The 9 frozen fields, in the exact order/spelling from docs/CONVENTIONS.md.
 REQUIRED_FIELD_NAMES: Tuple[FieldName, ...] = tuple(FieldName)
@@ -122,8 +133,8 @@ def extract_fields(
 
     Raises:
         ExtractionConfigError: GEMINI_API_KEY is not set.
-        GeminiCallError: the API call failed.
-        MalformedGeminiOutputError: Gemini's output could not be trusted as-is.
+        GeminiCallError: the primary and fallback API calls failed.
+        MalformedGeminiOutputError: output could not be trusted as-is.
 
     Never raises for an individual field being unresolved — that shows up
     as a candidate with value=None and a populated uncertainty_reason,
@@ -144,7 +155,16 @@ def extract_fields(
         return [_null_candidate(f, "no OCR text was available for this document") for f in REQUIRED_FIELD_NAMES]
 
     prompt = _build_prompt(pages_text)
-    raw_response = _call_gemini(client, prompt)
+    try:
+        raw_response = _call_gemini(client, prompt)
+    except GeminiCallError as exc:
+        logger.warning(
+            "Gemini call failed (%s); falling back to Groq (application=%s)",
+            exc, application_public_reference,
+        )
+        groq_client = _build_groq_client()
+        raw_response = _call_groq(groq_client, prompt)
+
     parsed = _parse_and_validate_response(raw_response)
 
     page_text_by_number = {p.page_number: p.page_text for p in ocr_result.pages}
@@ -157,7 +177,7 @@ def extract_fields(
 # --- Gemini client / call -------------------------------------------------
 
 def _build_gemini_client():
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = (os.environ.get("GEMINI_API_KEY") or getattr(settings, "GEMINI_API_KEY", "") or "").strip()
     if not api_key:
         raise ExtractionConfigError(
             "GEMINI_API_KEY is not set (see .env.example) — refusing to proceed "
@@ -169,6 +189,16 @@ def _build_gemini_client():
     # requires the dependency.
     return genai.Client(api_key=api_key)
 
+def _build_groq_client():
+    api_key = (os.environ.get("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", "") or "").strip()
+    if not api_key:
+        raise ExtractionConfigError(
+            "GROQ_API_KEY is not set (see .env.example) — refusing to proceed "
+            "rather than silently skipping extraction"
+        )
+    from groq import Groq  # imported lazily, same reasoning as the Gemini import above
+
+    return Groq(api_key=api_key, timeout=_get_groq_timeout_s())
 
 _SYSTEM_INSTRUCTION = """\
 You are a text transcription assistant for a government scholarship application \
@@ -250,12 +280,12 @@ def _call_gemini(client, prompt: str) -> str:
         response_mime_type="application/json",
         response_schema=GeminiExtractionResponse,
         temperature=0.0,  # deterministic transcription, not creative generation
-        http_options=types.HttpOptions(timeout=GEMINI_REQUEST_TIMEOUT_MS),
+        http_options=types.HttpOptions(timeout=_get_gemini_timeout_ms()),
     )
 
     try:
         response = client.models.generate_content(
-            model=GEMINI_MODEL_NAME,
+            model=_get_gemini_model_name(),
             contents=prompt,
             config=config,
         )
@@ -269,6 +299,47 @@ def _call_gemini(client, prompt: str) -> str:
         raise MalformedGeminiOutputError("Gemini returned an empty response body")
     return text
 
+def _call_groq(client, prompt: str) -> str:
+    """
+    Groq equivalent of _call_gemini. Groq's chat.completions API doesn't support
+    a strict response_schema like Gemini's structured output, so the JSON shape
+    is enforced by (a) response_format={"type": "json_object"} — Groq's best-effort
+    JSON mode — and (b) the schema being spelled out explicitly in the system
+    instruction below. The returned text is still validated byte-for-byte against
+    GeminiExtractionResponse in _parse_and_validate_response, same as the Gemini
+    path, so a malformed Groq response fails exactly the same way a malformed
+    Gemini response would — no special-casing needed downstream.
+    """
+    import groq as groq_errors  # for exception types
+
+    json_schema_instruction = (
+        _SYSTEM_INSTRUCTION
+        + "\n\nRespond with ONLY a single JSON object of this exact shape, no "
+        "markdown fences, no prose before or after:\n"
+        '{"fields": [{"field_name": str, "value_text": str|null, '
+        '"evidence_quote": str|null, "page_number": int|null, '
+        '"uncertainty_reason": str|null, "model_confidence": float}]}'
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model=_get_groq_model_name(),
+            temperature=0.0,  # deterministic transcription, matching the Gemini config
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": json_schema_instruction},
+                {"role": "user", "content": prompt},
+            ],
+        )
+    except groq_errors.APIError as exc:
+        raise GeminiCallError(f"Groq API call failed: {exc}") from exc
+    except Exception as exc:
+        raise GeminiCallError(f"Groq API call failed unexpectedly: {exc}") from exc
+
+    text = response.choices[0].message.content if response.choices else None
+    if not text:
+        raise MalformedGeminiOutputError("Groq returned an empty response body")
+    return text
 
 def _parse_and_validate_response(raw_text: str) -> GeminiExtractionResponse:
     try:

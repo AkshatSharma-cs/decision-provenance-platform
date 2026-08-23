@@ -156,6 +156,9 @@ def test_malformed_json_raises(monkeypatch):
 
 def test_missing_api_key_raises(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.setattr(extraction_service.settings, "GEMINI_API_KEY", "")
+    monkeypatch.setattr(extraction_service.settings, "GROQ_API_KEY", "")
     try:
         extraction_service.extract_fields(_fake_ocr_result())
         raise AssertionError("expected ExtractionConfigError")

@@ -9,6 +9,8 @@ Seeds default policy versions and the 3 frozen Demo Cases:
 from __future__ import annotations
 
 import logging
+from app.services.audit_service import AuditService
+from app.services.demo_seed_extra import seed_extra_demo_cases
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 from sqlalchemy.orm import Session
@@ -92,6 +94,7 @@ class SeedService:
         SeedService.seed_case_a(db)
         SeedService.seed_case_b(db)
         SeedService.seed_case_c(db)
+        seed_extra_demo_cases(db)
 
     @staticmethod
     def seed_case_a(db: Session):

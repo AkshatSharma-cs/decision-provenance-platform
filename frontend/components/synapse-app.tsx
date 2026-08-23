@@ -887,11 +887,14 @@ function UploadView() {
       // 2. Upload Documents
       if (filesToUpload.length > 0) {
         for (const file of filesToUpload) {
-          const docType = file.name.toLowerCase().includes("income")
+          const lower = file.name.toLowerCase();
+          const docType = lower.includes("income")
             ? "income_certificate"
-            : file.name.toLowerCase().includes("institute")
+            : lower.includes("institute") || lower.includes("institution") || lower.includes("bonafide")
               ? "institution_certificate"
-              : "application_form";
+              : lower.includes("declaration") || lower.includes("scholarship")
+                ? "scholarship_declaration"
+                : "application_form";
           await api.uploadDocument(app.id, file, docType);
         }
       }
@@ -900,20 +903,16 @@ function UploadView() {
       setUploadStatusMsg("Running OCR and Evidence Extraction Pipeline...");
 
       // 3. Trigger Process Pipeline
-      await api.processApplication(app.id);
+      const processRes = await api.processApplication(app.id);
 
       setStep(6);
-      setUploadStatusMsg("Pipeline completed! Redirecting to case file...");
+      setUploadStatusMsg(`Pipeline completed (${processRes.outcome})! Redirecting to case file...`);
 
       setTimeout(() => {
         router.push(`/applications/${app.public_reference || app.id}`);
-      }, 1200);
+      }, 1000);
     } catch (err: any) {
-      setUploadStatusMsg(`Pipeline note: ${err.message}. Proceeding to demo view.`);
-      // If mock/local fallback
-      setTimeout(() => {
-        router.push("/applications/APP-00016");
-      }, 1500);
+      setUploadStatusMsg(`Pipeline error: ${err.message}`);
     } finally {
       setIsProcessing(false);
     }
@@ -1382,7 +1381,16 @@ function Decision({ app }: { app: Application }) {
       .catch(() => {});
   }, [appId]);
 
-  const outcome = decision?.outcome || app.outcome || (app.status === "INELIGIBLE" ? "INELIGIBLE" : app.status === "NEEDS_REVIEW" ? "NEEDS_REVIEW" : "ELIGIBLE");
+  const outcome =
+    decision?.outcome ||
+    app.outcome ||
+    (app.status === "INELIGIBLE"
+      ? "INELIGIBLE"
+      : app.status === "NEEDS_REVIEW"
+        ? "NEEDS_REVIEW"
+        : app.status === "AUTO_DECISION" || app.status === "HUMAN_CONFIRMED"
+          ? "ELIGIBLE"
+          : "PENDING");
   const ruleResults = decision?.rule_results || [];
 
   return (
@@ -1399,7 +1407,9 @@ function Decision({ app }: { app: Application }) {
                     ? "text-[#0f766e]"
                     : outcome === "NEEDS_REVIEW"
                       ? "text-[#b45309]"
-                      : "text-[#b91c1c]"
+                      : outcome === "PENDING"
+                        ? "text-[#718294]"
+                        : "text-[#b91c1c]"
                 }`}
               >
                 {outcome}
@@ -1429,12 +1439,12 @@ function Decision({ app }: { app: Application }) {
           </div>
           <div className="border border-[#d8dee4] bg-white p-4 rounded-[4px]">
             <FieldLabel>Evidence Quality</FieldLabel>
-            <Quality quality="HIGH" />
+            <Quality quality={decision?.confidence_summary?.evidence_quality || "MEDIUM"} />
           </div>
           <div className="border border-[#d8dee4] bg-white p-4 rounded-[4px]">
             <FieldLabel>Policy Version</FieldLabel>
             <div className="mono text-xs font-semibold">
-              {decision?.policy_version || "CSSS-Demo-v1.1"}
+              {decision?.policy_version || "CSSS-Demo-v1.0"}
             </div>
           </div>
         </div>
@@ -1461,17 +1471,18 @@ function Decision({ app }: { app: Application }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {(ruleResults.length > 0 ? ruleResults : initialRules.map(r => ({
-                    rule_code: r.code,
-                    result: r.status as any,
-                    explanation: r.description,
-                    input_snapshot: {},
-                    policy_version: "CSSS-Demo-v1.1",
-                  }))).map((rule) => (
-                    <tr
-                      key={rule.rule_code}
-                      className="border-b border-[#edf0f2] last:border-0"
-                    >
+                  {ruleResults.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="px-4 py-8 text-center text-[#718294]">
+                        No rule evaluation records found for this application.
+                      </td>
+                    </tr>
+                  ) : (
+                    ruleResults.map((rule) => (
+                      <tr
+                        key={rule.rule_code}
+                        className="border-b border-[#edf0f2] last:border-0"
+                      >
                       <td className="px-4 py-3">
                         <span className="mono text-[11px] font-semibold text-[#12304a]">
                           {rule.rule_code}

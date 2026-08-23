@@ -128,7 +128,8 @@ def get_application(
 @router.post("/{id}/documents", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
 async def upload_document(
     id: str,
-    doc_type: str = Form("application_form"),
+    doc_type: Optional[str] = Form(None),
+    document_type: Optional[str] = Form(None),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(require_permission("upload")),
@@ -139,6 +140,7 @@ async def upload_document(
     - Stores file in storage directory
     - Appends DOCUMENT_UPLOADED to the hash-chain audit log
     """
+    actual_doc_type = doc_type or document_type or "application_form"
     app = db.query(Application).filter(
         (Application.id == id) | (Application.public_reference == id)
     ).first()
@@ -162,7 +164,7 @@ async def upload_document(
 
     doc = Document(
         application_id=app.id,
-        doc_type=doc_type,
+        doc_type=actual_doc_type,
         file_name=file.filename or "document.pdf",
         file_size=file_size,
         mime_type=file.content_type or "application/pdf",
@@ -266,6 +268,7 @@ def process_application(
         )
 
 
+@router.get("/{id}/extracted-fields", response_model=List[ValidatedField], include_in_schema=False)
 @router.get("/{id}/fields", response_model=List[ValidatedField])
 def get_extracted_fields(
     id: str,
@@ -353,6 +356,8 @@ def get_decision(
     )
 
 
+@router.get("/{id}/decision/export", include_in_schema=False)
+@router.get("/{id}/export", include_in_schema=False)
 @router.get("/{id}/report.pdf")
 def download_pdf_report(
     id: str,

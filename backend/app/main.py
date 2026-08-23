@@ -37,14 +37,21 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
 
     # Validate configuration on startup
-    if not os.environ.get("GEMINI_API_KEY") and not settings.GEMINI_API_KEY:
-        logger.warning(
-            "GEMINI_API_KEY is not set in environment or .env. Extraction service calls will fail unless configured."
-        )
+    if settings.GEMINI_API_KEY:
+        os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
+        logger.info("GEMINI_API_KEY configured (primary extraction model: %s).", settings.GEMINI_MODEL)
     else:
-        # Ensure it is set in os.environ for services that read os.environ directly
-        if settings.GEMINI_API_KEY and not os.environ.get("GEMINI_API_KEY"):
-            os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
+        logger.warning(
+            "GEMINI_API_KEY is not set in environment or .env. Extraction service will attempt fallback if configured."
+        )
+
+    if settings.GROQ_API_KEY:
+        os.environ["GROQ_API_KEY"] = settings.GROQ_API_KEY
+        logger.info("GROQ_API_KEY configured (fallback extraction model: %s).", settings.GROQ_MODEL)
+    elif not settings.GEMINI_API_KEY:
+        logger.error(
+            "Neither GEMINI_API_KEY nor GROQ_API_KEY is set. Extraction service calls will fail."
+        )
 
     if settings.TESSERACT_CMD and not os.environ.get("TESSERACT_CMD"):
         os.environ["TESSERACT_CMD"] = settings.TESSERACT_CMD

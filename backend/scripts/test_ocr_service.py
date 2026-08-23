@@ -16,11 +16,11 @@ import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Allow running this script directly (`python scripts/test_ocr_service.py`)
-# without installing the package.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-# Load the repository-level .env before importing application services.
-REPO_ROOT = Path(__file__).resolve().parents[2]
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+REPO_ROOT = BACKEND_DIR.parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+load_dotenv(BACKEND_DIR / ".env")
 load_dotenv(REPO_ROOT / ".env")
 
 import fitz  # PyMuPDF, only used here to synthesize a sample PDF

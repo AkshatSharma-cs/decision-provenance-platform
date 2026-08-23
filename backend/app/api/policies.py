@@ -27,6 +27,21 @@ def list_policies(
     return db.query(PolicyVersion).order_by(PolicyVersion.created_at.desc()).all()
 
 
+@router.get("/{id}", response_model=PolicyVersionResponse)
+def get_policy_version(
+    id: str,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(require_permission("view")),
+):
+    """Fetches a single policy version by ID or version string."""
+    policy = db.query(PolicyVersion).filter(
+        (PolicyVersion.id == id) | (PolicyVersion.version_string == id)
+    ).first()
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy version not found.")
+    return policy
+
+
 @router.post("", response_model=PolicyVersionResponse, status_code=status.HTTP_201_CREATED)
 def create_policy_version(
     payload: PolicyVersionCreate,
