@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f5f7fa;
+  --foreground: #12304a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "Inter", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "Cascadia Mono", monospace;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Inter", "Segoe UI", sans-serif;
+  margin: 0;
+}
+
+* { box-sizing: border-box; }
+button, input, select, textarea { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+.mono { font-family: "IBM Plex Mono", "Cascadia Mono", monospace; }
+.focus-ring:focus-visible, button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; }
+.signature-draw { animation: signature-draw 420ms ease-out both; }
+@keyframes signature-draw { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.active-breathe { animation: breathe 2s ease-in-out infinite; }
+@keyframes breathe { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+.evidence-flash { animation: evidence-flash 250ms ease-out; }
+@keyframes evidence-flash { 0% { background: #fff7ed; } 100% { background: #fff; } }
+
+.workspace-bg { position: relative; isolation: isolate; }
+.workspace-bg::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background-image: linear-gradient(rgba(18,48,74,.025) 1px, transparent 1px), linear-gradient(90deg, rgba(18,48,74,.025) 1px, transparent 1px); background-size: 32px 32px; mask-image: linear-gradient(to bottom, black, transparent 80%); }
+.workspace-bg main { position: relative; }
+.workspace-bg main > .mb-8.grid > div, .workspace-bg main > .grid > section, .workspace-bg main > .mb-6.grid > div { border-top-color: #69b8b0; }
+.workspace-bg table thead th { letter-spacing: .12em; }
+.workspace-bg button, .workspace-bg a { transition-duration: 160ms; }
+
+[data-theme="dark"] { --background: #0e1c28; --foreground: #e8f0f3; }
+[data-theme="dark"]::before { background-image: linear-gradient(rgba(164,202,205,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(164,202,205,.035) 1px, transparent 1px); }
+[data-theme="dark"] .bg-white, [data-theme="dark"] [class*="bg-white"] { background-color: #172b3b !important; }
+[data-theme="dark"] .bg-\[\#f5f7fa\] { background-color: #0e1c28 !important; }
+[data-theme="dark"] .bg-\[\#fbfcfd\] { background-color: #142533 !important; }
+[data-theme="dark"] .bg-\[\#f7f9fa\] { background-color: #1b3445 !important; }
+[data-theme="dark"] .bg-\[\#eef1f3\] { background-color: #132735 !important; }
+[data-theme="dark"] .bg-\[\#edf1f4\] { background-color: #243b4a !important; }
+[data-theme="dark"] .bg-\[\#eef2f4\] { background-color: #294253 !important; }
+[data-theme="dark"] .bg-\[\#e6f4f1\] { background-color: #173b3d !important; }
+[data-theme="dark"] .bg-\[\#fff4df\] { background-color: #493a20 !important; }
+[data-theme="dark"] .bg-\[\#fdecec\] { background-color: #48282c !important; }
+[data-theme="dark"] .bg-\[\#dfe9e9\] { background-color: #244653 !important; }
+[data-theme="dark"] .text-\[\#12304a\] { color: #e8f0f3 !important; }
+[data-theme="dark"] .text-\[\#405466\] { color: #b6c7d1 !important; }
+[data-theme="dark"] .text-\[\#718294\] { color: #91a7b5 !important; }
+[data-theme="dark"] .border-\[\#d8dee4\], [data-theme="dark"] .border-\[\#edf0f2\] { border-color: #294253 !important; }
+[data-theme="dark"] .border-\[\#aab8c4\] { border-color: #527080 !important; }
+[data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea { color: #e8f0f3; background-color: #172b3b; }
+[data-theme="dark"] .placeholder\:text-\[\#8b9aa8\]::placeholder { color: #78909f; }
+[data-theme="dark"] .shadow-\[0_2px_8px_rgba\(18\,48\,74\,\.08\)\] { box-shadow: 0 2px 8px rgba(0,0,0,.28) !important; }
+[data-theme="dark"] .workspace-bg::before { opacity: .8; }
+[data-theme="dark"] > div { color: #e8f0f3; }
+[data-theme="dark"] header { background: #102230 !important; color: #e8f0f3 !important; border-color: #294253 !important; }
+[data-theme="dark"] main h1, [data-theme="dark"] main h2, [data-theme="dark"] main h3 { color: #e8f0f3 !important; }
+[data-theme="dark"] main, [data-theme="dark"] [class*="bg-[#f5f7fa]"] { background-color: #0e1c28 !important; }
+[data-theme="dark"] main p, [data-theme="dark"] main td, [data-theme="dark"] main th, [data-theme="dark"] main label { color: #b6c7d1; }
+[data-theme="dark"] main section, [data-theme="dark"] main table, [data-theme="dark"] main blockquote { color: #e8f0f3; }
+[data-theme="dark"] main section span, [data-theme="dark"] main section div { color: inherit; }
+[data-theme="dark"] main .text-\[\#718294\], [data-theme="dark"] main .text-\[\#405466\] { color: #b6c7d1 !important; }
+[data-theme="dark"] main .text-\[\#0f766e\] { color: #72c9bf !important; }
+[data-theme="dark"] main a.text-\[\#2563eb\] { color: #78aef5 !important; }
+[data-theme="dark"] main input, [data-theme="dark"] main select, [data-theme="dark"] main textarea { border-color: #385567 !important; }
+[data-theme="dark"] main .bg-\[\#fbfcfd\] { color: #d9e5e9; }
