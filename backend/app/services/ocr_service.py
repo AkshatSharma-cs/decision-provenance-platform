@@ -41,15 +41,21 @@ from PIL import Image, UnidentifiedImageError
 from pytesseract import Output
 
 # On Windows (and any machine where the tesseract binary isn't on PATH),
-# pytesseract has no way to find it unless told explicitly. Rather than
-# requiring every developer to edit code, we read an optional TESSERACT_CMD
-# env var (see .env.example) and point pytesseract at it. If unset, we fall
-# back to pytesseract's default behavior (look up "tesseract" on PATH),
-# which is what already works on Linux/macOS with a normal package-manager
-# install.
-_TESSERACT_CMD = os.environ.get("TESSERACT_CMD")
-if _TESSERACT_CMD:
-    pytesseract.pytesseract.tesseract_cmd = _TESSERACT_CMD
+# pytesseract has no way to find it unless told explicitly. We read an
+# optional TESSERACT_CMD env var (see .env.example) and point pytesseract at
+# it. This is done LAZILY inside _ensure_tesseract_configured() rather than
+# once at module-import time: in a FastAPI app, this module gets imported
+# (via the router -> pipeline_service import chain) BEFORE main.py's
+# lifespan startup hook runs and bridges settings.TESSERACT_CMD into
+# os.environ — a module-level read here would permanently miss that value
+# for the process's whole lifetime. Re-checking per call is cheap (a dict
+# lookup and, at most, a redundant attribute assignment) and removes the
+# ordering dependency entirely; it also means a script or test that sets
+# the env var after import (as our own test scripts do) still works.
+def _ensure_tesseract_configured() -> None:
+    tesseract_cmd = os.environ.get("TESSERACT_CMD")
+    if tesseract_cmd:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
 
 from app.schemas.ocr import (
     OCRDocumentResult,
@@ -133,6 +139,7 @@ def process_document(file_path: str) -> OCRDocumentResult:
     Never raises for a single bad page in an otherwise-good multi-page
     document — that page is included in the result with warnings instead.
     """
+    _ensure_tesseract_configured()
     path = Path(file_path)
     _validate_file_exists(path)
 
