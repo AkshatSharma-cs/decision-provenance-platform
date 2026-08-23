@@ -270,7 +270,7 @@ class RulesEvaluator:
 
         if len(untrusted) == 0 and avg_conf >= 0.85:
             quality = "HIGH"
-        elif len(untrusted) <= 1 and avg_conf >= 0.65:
+        elif len(untrusted) == 0 and avg_conf >= 0.65:
             quality = "MEDIUM"
         else:
             quality = "LOW"
