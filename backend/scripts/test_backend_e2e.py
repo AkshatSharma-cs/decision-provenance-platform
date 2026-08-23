@@ -97,109 +97,108 @@ def test_pure_python_rules_evaluator():
 
 def test_api_and_audit_cryptography():
     print("\n--- 2. Testing FastAPI Endpoints & Hash-Chain Audit Cryptography ---")
-    client = TestClient(app)
+    with TestClient(app) as client:
+        # Health check
+        res = client.get("/health")
+        assert res.status_code == 200
+        assert res.json()["status"] == "healthy"
+        print("  [PASS] GET /health returned 200 OK.")
 
-    # Health check
-    res = client.get("/health")
-    assert res.status_code == 200
-    assert res.json()["status"] == "healthy"
-    print("  [PASS] GET /health returned 200 OK.")
+        # List policies
+        res = client.get("/api/policies")
+        assert res.status_code == 200
+        policies = res.json()
+        assert len(policies) >= 2
+        assert any(p["version_string"] == "CSSS-Demo-v1.0" for p in policies)
+        print("  [PASS] GET /api/policies returned active versioned policies.")
 
-    # List policies
-    res = client.get("/api/policies")
-    assert res.status_code == 200
-    policies = res.json()
-    assert len(policies) >= 2
-    assert any(p["version_string"] == "CSSS-Demo-v1.0" for p in policies)
-    print("  [PASS] GET /api/policies returned active versioned policies.")
+        # List applications (Demo cases A, B, C)
+        res = client.get("/api/applications")
+        assert res.status_code == 200
+        apps = res.json()
+        assert len(apps) >= 3
+        refs = [a["public_reference"] for a in apps]
+        assert "APP-00016" in refs
+        assert "APP-00017" in refs
+        assert "APP-00018" in refs
+        print(f"  [PASS] GET /api/applications found {len(apps)} applications including APP-00016, APP-00017, APP-00018.")
 
-    # List applications (Demo cases A, B, C)
-    res = client.get("/api/applications")
-    assert res.status_code == 200
-    apps = res.json()
-    assert len(apps) >= 3
-    refs = [a["public_reference"] for a in apps]
-    assert "APP-00016" in refs
-    assert "APP-00017" in refs
-    assert "APP-00018" in refs
-    print(f"  [PASS] GET /api/applications found {len(apps)} applications including APP-00016, APP-00017, APP-00018.")
+        # Inspect Case A (APP-00016)
+        app16 = next(a for a in apps if a["public_reference"] == "APP-00016")
+        res = client.get(f"/api/applications/{app16['id']}/fields")
+        assert res.status_code == 200
+        fields = res.json()
+        assert len(fields) == 9
+        income_f = next(f for f in fields if f["field_name"] == "family_income")
+        assert income_f["normalized_value"] == 420000
+        assert income_f["status"] == "VALIDATED"
+        print("  [PASS] GET /api/applications/{id}/fields returned 9 validated fields with exact quotes & coordinates.")
 
-    # Inspect Case A (APP-00016)
-    app16 = next(a for a in apps if a["public_reference"] == "APP-00016")
-    res = client.get(f"/api/applications/{app16['id']}/fields")
-    assert res.status_code == 200
-    fields = res.json()
-    assert len(fields) == 9
-    income_f = next(f for f in fields if f["field_name"] == "family_income")
-    assert income_f["normalized_value"] == 420000
-    assert income_f["status"] == "VALIDATED"
-    print("  [PASS] GET /api/applications/{id}/fields returned 9 validated fields with exact quotes & coordinates.")
+        # Inspect Decision
+        res = client.get(f"/api/applications/{app16['id']}/decision")
+        assert res.status_code == 200
+        decision = res.json()
+        assert decision["outcome"] == "ELIGIBLE"
+        assert decision["decision_mode"] == "AUTOMATED"
+        assert len(decision["rule_results"]) == 6
+        print("  [PASS] GET /api/applications/{id}/decision confirmed ELIGIBLE outcome with 6 evaluated rules.")
 
-    # Inspect Decision
-    res = client.get(f"/api/applications/{app16['id']}/decision")
-    assert res.status_code == 200
-    decision = res.json()
-    assert decision["outcome"] == "ELIGIBLE"
-    assert decision["decision_mode"] == "AUTOMATED"
-    assert len(decision["rule_results"]) == 6
-    print("  [PASS] GET /api/applications/{id}/decision confirmed ELIGIBLE outcome with 6 evaluated rules.")
+        # Verify Audit Chain on clean data
+        res = client.post("/api/audit/verify", json={"application_id": app16["id"]})
+        assert res.status_code == 200
+        audit_res = res.json()
+        assert audit_res["verified"] is True
+        assert audit_res["first_broken_entry"] is None
+        print(f"  [PASS] POST /api/audit/verify verified {audit_res['total_entries']} SHA-256 + HMAC entries successfully.")
 
-    # Verify Audit Chain on clean data
-    res = client.post("/api/audit/verify", json={"application_id": app16["id"]})
-    assert res.status_code == 200
-    audit_res = res.json()
-    assert audit_res["verified"] is True
-    assert audit_res["first_broken_entry"] is None
-    print(f"  [PASS] POST /api/audit/verify verified {audit_res['total_entries']} SHA-256 + HMAC entries successfully.")
+        # Test Replay endpoint
+        res = client.get(f"/api/applications/{app16['id']}/replay")
+        assert res.status_code == 200
+        replay = res.json()
+        assert replay["public_reference"] == "APP-00016"
+        assert len(replay["timeline"]) > 0
+        assert replay["audit_chain_verification"]["verified"] is True
+        print(f"  [PASS] GET /api/applications/{app16['id']}/replay reconstructed full timeline & verified badge from stored snapshots.")
 
-    # Test Replay endpoint
-    res = client.get(f"/api/applications/{app16['id']}/replay")
-    assert res.status_code == 200
-    replay = res.json()
-    assert replay["public_reference"] == "APP-00016"
-    assert len(replay["timeline"]) > 0
-    assert replay["audit_chain_verification"]["verified"] is True
-    print("  [PASS] GET /api/applications/{id}/replay reconstructed full timeline & verified badge from stored snapshots.")
+        # Test PDF Report Generation
+        res = client.get(f"/api/applications/{app16['id']}/report.pdf")
+        assert res.status_code == 200
+        assert res.headers["content-type"] == "application/pdf"
+        assert len(res.content) > 1000
+        print(f"  [PASS] GET /api/applications/{app16['id']}/report.pdf generated ReportLab audit PDF ({len(res.content)} bytes).")
 
-    # Test PDF Report Generation
-    res = client.get(f"/api/applications/{app16['id']}/report.pdf")
-    assert res.status_code == 200
-    assert res.headers["content-type"] == "application/pdf"
-    assert len(res.content) > 1000
-    print(f"  [PASS] GET /api/applications/{id}/report.pdf generated ReportLab audit PDF ({len(res.content)} bytes).")
+        # Test Human Override Case (APP-00018)
+        app18 = next(a for a in apps if a["public_reference"] == "APP-00018")
+        res = client.get(f"/api/applications/{app18['id']}/decision")
+        assert res.status_code == 200
+        dec18 = res.json()
+        assert dec18["decision_version"] == 2
+        assert dec18["outcome"] == "ELIGIBLE"
+        assert dec18["decision_mode"] == "HUMAN_CONFIRMED"
+        print("  [PASS] APP-00018 confirmed Decision v2 (HUMAN_CONFIRMED, ELIGIBLE) with supersedes link.")
 
-    # Test Human Override Case (APP-00018)
-    app18 = next(a for a in apps if a["public_reference"] == "APP-00018")
-    res = client.get(f"/api/applications/{app18['id']}/decision")
-    assert res.status_code == 200
-    dec18 = res.json()
-    assert dec18["decision_version"] == 2
-    assert dec18["outcome"] == "ELIGIBLE"
-    assert dec18["decision_mode"] == "HUMAN_CONFIRMED"
-    print("  [PASS] APP-00018 confirmed Decision v2 (HUMAN_CONFIRMED, ELIGIBLE) with supersedes link.")
+        # Test Adversarial Tampering Detection (Adversarial Check #6)
+        print("\n--- 3. Testing Adversarial Tampering Detection (Adversarial Check #6) ---")
+        res = client.post(f"/api/demo/tamper/APP-00016")
+        assert res.status_code == 200
+        print("  [INFO] Injected unauthorized modification into APP-00016 audit entry.")
 
-    # Test Adversarial Tampering Detection (Adversarial Check #6)
-    print("\n--- 3. Testing Adversarial Tampering Detection (Adversarial Check #6) ---")
-    res = client.post(f"/api/demo/tamper/APP-00016")
-    assert res.status_code == 200
-    print("  [INFO] Injected unauthorized modification into APP-00016 audit entry.")
+        # Now verify chain again
+        res = client.post("/api/audit/verify", json={"application_id": app16["id"]})
+        assert res.status_code == 200
+        tamper_check = res.json()
+        assert tamper_check["verified"] is False
+        assert tamper_check["first_broken_entry"] is not None
+        print(f"  [PASS] Tampering immediately caught: {tamper_check['first_broken_entry']['reason']}")
+        print(f"  [PASS] Broken entry identified at index {tamper_check['first_broken_entry']['index']} ({tamper_check['first_broken_entry']['action_type']}).")
 
-    # Now verify chain again
-    res = client.post("/api/audit/verify", json={"application_id": app16["id"]})
-    assert res.status_code == 200
-    tamper_check = res.json()
-    assert tamper_check["verified"] is False
-    assert tamper_check["first_broken_entry"] is not None
-    print(f"  [PASS] Tampering immediately caught: {tamper_check['first_broken_entry']['reason']}")
-    print(f"  [PASS] Broken entry identified at index {tamper_check['first_broken_entry']['index']} ({tamper_check['first_broken_entry']['action_type']}).")
-
-    # Reset demo back to clean state
-    res = client.post("/api/demo/reset")
-    assert res.status_code == 200
-    # Confirm chain is clean again
-    res = client.post("/api/audit/verify")
-    assert res.json()["verified"] is True
-    print("  [PASS] POST /api/demo/reset restored clean, verifiable state for live demo.")
+        # Reset demo back to clean state
+        res = client.post("/api/demo/reset")
+        assert res.status_code == 200
+        # Confirm chain is clean again
+        res = client.post("/api/audit/verify")
+        assert res.json()["verified"] is True
+        print("  [PASS] POST /api/demo/reset restored clean, verifiable state for live demo.")
 
 
 if __name__ == "__main__":
