@@ -3,11 +3,13 @@
   "_producer": "Person 2 (extraction_service.py, Gemini Flash structured JSON output)",
   "_consumer": "Person 1 (passes to evidence_service.py for matching against OCR text)",
   "_description": "Raw candidate field value returned by Gemini before evidence matching. Never trusted on its own — must always include evidence_quote or it is rejected.",
+  "_change_note": "2026-08-23 (Person 2): added `model_confidence`. validated_field.json already has a model_confidence field with no other stated source for it — this is Gemini's own self-reported transcription confidence, produced at this stage and carried through. NEEDS TEAM SIGN-OFF per README contract-change rule before merging past this branch; flagging explicitly rather than changing silently.",
 
   "field_name": "family_income",
   "value": 420000,
   "value_text": "₹4,20,000 per annum",
   "evidence_quote": "Gross parental/family income: ₹4,20,000 per annum",
   "page_number": 2,
-  "uncertainty_reason": null
+  "uncertainty_reason": null,
+  "model_confidence": 0.94
 }
