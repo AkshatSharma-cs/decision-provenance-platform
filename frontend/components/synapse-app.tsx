@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useDropzone } from "react-dropzone";
 import {
   applications,
   auditEvents,
@@ -37,13 +39,16 @@ import {
   Search,
   ShieldCheck,
   Sun,
+  UploadCloud,
   UsersRound,
   XCircle,
 } from "lucide-react";
 
 type Props = { view: View; applicationId?: string };
+type DemoRole = "ADMIN" | "USER";
 let sidebarCollapsed = false;
 let darkTheme = false;
+let activeRole: DemoRole = "ADMIN";
 
 const nav = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -165,9 +170,11 @@ function Shell({
   children: React.ReactNode;
   current: string;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsedState] = useState(sidebarCollapsed);
   const [dark, setDarkState] = useState(darkTheme);
+  const [role, setRole] = useState<DemoRole>(activeRole);
   const [preferencesReady, setPreferencesReady] = useState(false);
 
   useEffect(() => {
@@ -177,6 +184,11 @@ function Shell({
       setCollapsedState(savedCollapsed);
       darkTheme = window.localStorage.getItem("synapse-theme") === "dark";
       setDarkState(darkTheme);
+      activeRole =
+        window.localStorage.getItem("synapse-role") === "USER"
+          ? "USER"
+          : "ADMIN";
+      setRole(activeRole);
       setPreferencesReady(true);
     });
     return () => window.cancelAnimationFrame(frame);
@@ -200,6 +212,17 @@ function Shell({
     darkTheme = value;
     setDarkState(value);
   };
+  const navigation =
+    role === "USER"
+      ? [
+          { label: "Upload", href: "/upload", icon: UploadCloud },
+          {
+            label: "Processing",
+            href: "/applications/APP-00020",
+            icon: Clock3,
+          },
+        ]
+      : nav;
 
   return (
     <div data-theme={dark ? "dark" : "light"} style={{ backgroundColor: dark ? "#0e1c28" : "#f5f7fa" }} className="workspace-bg min-h-screen bg-[#f5f7fa] text-[#12304a] transition-colors duration-200">
@@ -221,7 +244,7 @@ function Shell({
           </div>
         </div>
         <nav className="space-y-1">
-          {nav.map(({ label, href, icon: Icon }) => (
+          {navigation.map(({ label, href, icon: Icon }) => (
             <Link
               key={label}
               href={href}
@@ -246,10 +269,24 @@ function Shell({
               RK
             </span>
             <div className={collapsed ? "hidden" : ""}>
-              <div className="text-xs font-semibold">Riya Kapoor</div>
-              <div className="text-[10px] text-slate-400">Auditor</div>
+              <div className="text-xs font-semibold">
+                {role === "USER" ? "Demo Applicant" : "Riya Kapoor"}
+              </div>
+              <div className="text-[10px] text-slate-400">
+                {role === "USER" ? "Applicant" : "Auditor"}
+              </div>
             </div>
-            <LogOut size={15} className="ml-auto text-slate-400" />
+            <button
+              className="ml-auto text-slate-400 hover:text-white"
+              onClick={() => {
+                window.localStorage.removeItem("synapse-role");
+                router.push("/login");
+              }}
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <LogOut size={15} />
+            </button>
           </div>
           <button onClick={() => setCollapsed(!collapsed)} className={`mt-4 hidden h-8 w-full items-center justify-center gap-2 rounded-[4px] border border-white/10 text-[10px] text-slate-300 transition-colors hover:border-[#69b8b0] hover:text-white lg:flex ${collapsed ? "px-0" : "px-2"}`} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
             {collapsed ? <PanelLeftOpen size={15} /> : <><PanelLeftClose size={15} /> Collapse navigation</>}
@@ -302,6 +339,204 @@ function Shell({
         {children}
       </div>
     </div>
+  );
+}
+
+function UploadView() {
+  const [uploaded, setUploaded] = useState<
+    {
+      id: string;
+      name: string;
+      size: string;
+      type: string;
+      hash: string;
+      uploadStatus: "UPLOADED" | "QUEUED";
+      processingStatus: "READY" | "PROCESSING" | "SCANNED";
+    }[]
+  >([]);
+  const [step, setStep] = useState(0);
+  const steps = [
+    "Uploading",
+    "Processing",
+    "OCR",
+    "Extracting",
+    "Validating",
+    "Evaluating Rules",
+    "Complete",
+  ];
+
+  const onDrop = (files: File[]) => {
+    const next = files.map((file, i) => ({
+      id: `${file.name}-${Date.now()}-${i}`,
+      name: file.name,
+      size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+      type: file.type.includes("pdf") ? "PDF" : "IMAGE",
+      hash: `${Math.random().toString(16).slice(2, 8)}...`,
+      uploadStatus: "UPLOADED" as const,
+      processingStatus: "READY" as const,
+    }));
+    setUploaded((prev) => [...prev, ...next]);
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    multiple: true,
+    accept: {
+      "application/pdf": [".pdf"],
+      "image/jpeg": [".jpg", ".jpeg"],
+      "image/png": [".png"],
+    },
+  });
+
+  const runProcessing = () => {
+    setUploaded((prev) =>
+      prev.map((item) => ({ ...item, processingStatus: "PROCESSING" })),
+    );
+    setStep(1);
+    let idx = 1;
+    const timer = setInterval(() => {
+      idx += 1;
+      setStep(idx);
+      if (idx >= steps.length - 1) {
+        clearInterval(timer);
+        setUploaded((prev) =>
+          prev.map((item) => ({ ...item, processingStatus: "SCANNED" })),
+        );
+      }
+    }, 800);
+  };
+
+  return (
+    <Shell current="Upload">
+      <main className="mx-auto max-w-[1200px] p-5 lg:p-8">
+        <PageHead
+          eyebrow="Applicant workspace"
+          title="Upload documents for OCR"
+          sub="Submit scheme documents for extraction and evidence-based eligibility checks."
+        />
+
+        <section className="mb-5 grid gap-4 border border-[#d8dee4] bg-white p-5 md:grid-cols-2">
+          <label className="text-xs font-semibold text-[#405466]">
+            Scheme
+            <select className="mt-2 h-10 w-full rounded-[4px] border border-[#d8dee4] bg-white px-3 text-sm">
+              <option>Education Assistance Scheme</option>
+              <option>Housing Support Scheme</option>
+              <option>Medical Assistance Scheme</option>
+            </select>
+          </label>
+          <label className="text-xs font-semibold text-[#405466]">
+            Applicant reference
+            <input
+              className="mt-2 h-10 w-full rounded-[4px] border border-[#d8dee4] px-3 text-sm"
+              defaultValue="APL-****-2407"
+            />
+          </label>
+        </section>
+
+        <section className="mb-5 border border-[#d8dee4] bg-white p-5">
+          <h2 className="mb-3 text-sm font-semibold">Required documents</h2>
+          <div className="grid gap-2 text-xs sm:grid-cols-2">
+            {["Government ID", "Income Certificate", "Bank Statement", "Residence Proof"].map((doc, i) => (
+              <div key={doc} className="flex items-center gap-2 text-[#405466]">
+                <span
+                  className={`inline-grid h-4 w-4 place-items-center rounded-[3px] border ${i < 2 ? "border-[#0f766e] bg-[#e6f4f1] text-[#0f766e]" : "border-[#d8dee4] text-[#718294]"}`}
+                >
+                  {i < 2 ? "✓" : "○"}
+                </span>
+                {doc}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-5 border border-[#d8dee4] bg-white p-5">
+          <div
+            {...getRootProps()}
+            className={`cursor-pointer rounded-[6px] border border-dashed p-8 text-center transition-colors ${
+              isDragActive
+                ? "border-[#0f766e] bg-[#e6f4f1]"
+                : "border-[#d8dee4] hover:border-[#0f766e]"
+            }`}
+          >
+            <input {...getInputProps()} />
+            <UploadCloud className="mx-auto mb-2 text-[#405466]" size={24} />
+            <p className="text-sm font-semibold">Drag and drop files</p>
+            <p className="mt-1 text-xs text-[#718294]">
+              PDF, JPG, PNG · Multiple files supported
+            </p>
+          </div>
+        </section>
+
+        <section className="mb-5 border border-[#d8dee4] bg-white p-5">
+          <h2 className="mb-3 text-sm font-semibold">OCR processing pipeline</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            {steps.map((label, idx) => (
+              <div key={label} className="flex items-center gap-2">
+                <span
+                  className={`grid h-6 w-6 place-items-center rounded-full border text-[10px] ${
+                    idx < step
+                      ? "border-[#0f766e] bg-[#0f766e] text-white"
+                      : idx === step
+                        ? "active-breathe border-[#0f766e] text-[#0f766e]"
+                        : "border-[#d8dee4] text-[#718294]"
+                  }`}
+                >
+                  {idx + 1}
+                </span>
+                <span className="text-xs text-[#405466]">{label}</span>
+                {idx < steps.length - 1 && <span className="h-px w-4 bg-[#d8dee4]" />}
+              </div>
+            ))}
+          </div>
+          <div className="mt-4">
+            <Button onClick={runProcessing}>Process Application</Button>
+          </div>
+        </section>
+
+        <section className="overflow-x-auto border border-[#d8dee4] bg-white">
+          <table className="w-full min-w-[900px] text-left text-xs">
+            <thead className="border-b border-[#d8dee4] bg-[#fbfcfd] text-[10px] uppercase tracking-[.1em] text-[#718294]">
+              <tr>
+                <th className="px-4 py-3">Document</th>
+                <th className="px-4 py-3">Type</th>
+                <th className="px-4 py-3">Size</th>
+                <th className="px-4 py-3">Hash prefix</th>
+                <th className="px-4 py-3">Upload status</th>
+                <th className="px-4 py-3">Processing status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {uploaded.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-6 text-center text-[#718294]" colSpan={6}>
+                    No files uploaded yet.
+                  </td>
+                </tr>
+              ) : (
+                uploaded.map((file) => (
+                  <tr key={file.id} className="border-b border-[#edf0f2] last:border-0">
+                    <td className="px-4 py-3 font-semibold text-[#12304a]">{file.name}</td>
+                    <td className="px-4 py-3">{file.type}</td>
+                    <td className="px-4 py-3">{file.size}</td>
+                    <td className="mono px-4 py-3">SHA256: {file.hash}</td>
+                    <td className="px-4 py-3 text-[#0f766e]">{file.uploadStatus}</td>
+                    <td className="px-4 py-3">
+                      {file.processingStatus === "SCANNED" ? (
+                        <span className="text-[#0f766e]">SCANNED</span>
+                      ) : file.processingStatus === "PROCESSING" ? (
+                        <span className="text-[#b45309]">PROCESSING</span>
+                      ) : (
+                        <span className="text-[#405466]">READY</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </section>
+      </main>
+    </Shell>
   );
 }
 function ApplicationBar({ app }: { app: Application }) {
@@ -1282,11 +1517,11 @@ export default function SynapseApp({
   if (view === "decision") return <Decision app={app} />;
   if (view === "review") return <Review app={applications[2]} />;
   if (view === "replay") return <Replay app={app} />;
+  if (view === "upload") return <UploadView />;
   if (
     view === "policies" ||
     view === "audit" ||
-    view === "reports" ||
-    view === "upload"
+    view === "reports"
   )
     return <AdminView view={view} />;
   return <Overview app={app} />;
