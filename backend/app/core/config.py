@@ -17,10 +17,8 @@ class Settings(BaseSettings):
 
     # Database
     # Default to a local SQLite database in backend/data if DATABASE_URL is not set
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL", 
-        f"sqlite:///{Path(__file__).resolve().parent.parent.parent}/synapse.db"
-    )
+    DATABASE_URL: str = os.getenv("DATABASE_URL") or f"sqlite:///{Path(__file__).resolve().parent.parent.parent}/synapse.db"
+    
 
     # Supabase (Optional in local dev, required for cloud deployment)
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
